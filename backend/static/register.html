@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExamGuard — Student Registration</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 50%, #e0e7ff 100%);
+      padding: 24px 16px;
+      color: #1e293b;
+    }
+    .card {
+      max-width: 420px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 32px rgba(30, 41, 59, 0.08);
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 6px; }
+    .sub { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+    label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-bottom: 18px;
+    }
+    input[readonly] { background: #f1f5f9; letter-spacing: 0.15em; font-weight: 700; }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 0.9rem; display: none; }
+    .msg.error { background: #fef2f2; color: #b91c1c; display: block; }
+    .msg.success { background: #ecfdf5; color: #047857; display: block; }
+    .preview { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Student Registration</h1>
+    <p class="sub">No account needed. Fill in your details for this classroom.</p>
+
+    <form id="regForm">
+      <label for="classroom_code">Classroom Code</label>
+      <input type="text" id="classroom_code" name="classroom_code" readonly required />
+
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" required placeholder="Your full name" />
+
+      <label for="roll_number">Roll Number</label>
+      <input type="text" id="roll_number" name="roll_number" required placeholder="e.g. 2021-CS-001" />
+
+      <label for="profile_image">Profile Picture</label>
+      <img id="preview" class="preview" alt="Preview" />
+      <input type="file" id="profile_image" name="profile_image" accept="image/*" required />
+
+      <button type="submit" id="submitBtn">Submit Registration</button>
+    </form>
+    <div id="message" class="msg"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codeInput = document.getElementById('classroom_code');
+    const code = (params.get('code') || '').trim().toUpperCase();
+    codeInput.value = code;
+
+    const preview = document.getElementById('preview');
+    document.getElementById('profile_image').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    });
+
+    const form = document.getElementById('regForm');
+    const msg = document.getElementById('message');
+    const btn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'msg';
+      msg.textContent = '';
+      btn.disabled = true;
+
+      if (!codeInput.value.trim()) {
+        msg.className = 'msg error';
+        msg.textContent = 'Missing classroom code. Open the link shared by your teacher.';
+        btn.disabled = false;
+        return;
+      }
+
+      const fd = new FormData(form);
+      try {
+        const res = await fetch('/students/register', {
+          method: 'POST',
+          body: fd,
+          headers: { 'ngrok-skip-browser-warning': '69420' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          let err = 'Registration failed';
+          const d = data.detail;
+          if (typeof d === 'string') err = d;
+          else if (Array.isArray(d)) err = d.map((x) => x.msg || x).join(', ');
+          throw new Error(err);
+        }
+        msg.className = 'msg success';
+        msg.textContent = 'Registration successful! You may close this page.';
+        form.reset();
+        codeInput.value = code;
+        preview.style.display = 'none';
+      } catch (err) {
+        msg.className = 'msg error';
+        msg.textContent = err.message || 'Something went wrong. Try again.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -2,20 +2,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/text_prompt_dialog.dart';
 import 'classroom_management_screen.dart';
 import 'login_screen.dart';
 
 class ClassroomDashboard extends StatefulWidget {
   final String firebaseUid;
-  final String role;
 
-  const ClassroomDashboard({
-    super.key,
-    required this.firebaseUid,
-    required this.role,
-  });
+  const ClassroomDashboard({super.key, required this.firebaseUid});
 
   @override
   State<ClassroomDashboard> createState() => _ClassroomDashboardState();
@@ -27,10 +24,8 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
 
   bool _isLoading = false;
   List<Map<String, dynamic>> _classrooms = [];
-  Map<String, dynamic>? _currentUser;
+  Map<String, dynamic>? _currentTeacher;
   final Map<String, Map<String, dynamic>> _activeSessions = {};
-
-  bool get _isTeacher => widget.role == 'teacher';
 
   @override
   void initState() {
@@ -41,10 +36,8 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
   Future<void> _loadClassrooms() async {
     setState(() => _isLoading = true);
     try {
-      final profile = await _apiService.getUserProfile(widget.firebaseUid);
-      final data = _isTeacher
-          ? await _apiService.getTeacherClassrooms(widget.firebaseUid)
-          : await _apiService.getStudentClassrooms(widget.firebaseUid);
+      final profile = await _apiService.getTeacherProfile(widget.firebaseUid);
+      final data = await _apiService.getTeacherClassrooms(widget.firebaseUid);
 
       final activeSessions = <String, Map<String, dynamic>>{};
       for (final classroom in data) {
@@ -56,7 +49,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
 
       if (!mounted) return;
       setState(() {
-        _currentUser = profile;
+        _currentTeacher = profile;
         _classrooms = data;
         _activeSessions
           ..clear()
@@ -64,7 +57,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
       });
     } catch (e) {
       if (!mounted) return;
-      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(ApiErrorHandler.userMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -93,97 +86,69 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
   }
 
   Future<void> _createClassroomDialog() async {
-    final controller = TextEditingController();
-    await showDialog<void>(
+    final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Create Classroom', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: 'Classroom name',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: const Icon(Icons.class_outlined),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(context);
-              try {
-                final response = await _apiService.createClassroom(
-                  classroomName: name,
-                  createdBy: widget.firebaseUid,
-                );
-                final classroom = response['classroom'] as Map<String, dynamic>;
-                _showMessage('Classroom created · Code: ${classroom['classroom_code']}');
-                await _loadClassrooms();
-              } catch (e) {
-                _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
-              }
-            },
-            style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            child: const Text('Create'),
-          ),
-        ],
+      builder: (context) => const TextPromptDialog(
+        title: 'Create Classroom',
+        label: 'Classroom name',
+        confirmLabel: 'Create',
       ),
     );
-    controller.dispose();
+
+    if (!mounted || name == null || name.isEmpty) return;
+
+    try {
+      final response = await _apiService.createClassroom(
+        classroomName: name,
+        createdBy: widget.firebaseUid,
+      );
+      if (!mounted) return;
+      final classroom = response['classroom'] as Map<String, dynamic>;
+      _showMessage('Classroom created · Code: ${classroom['classroom_code']}');
+      await _loadClassrooms();
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(ApiErrorHandler.userMessage(e), isError: true);
+    }
   }
 
   Future<void> _joinClassroomDialog() async {
-    final controller = TextEditingController();
-    await showDialog<void>(
+    final code = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Join Classroom', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: controller,
-          textCapitalization: TextCapitalization.characters,
-          decoration: InputDecoration(
-            labelText: 'Classroom code',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: const Icon(Icons.vpn_key_outlined),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final code = controller.text.trim().toUpperCase();
-              if (code.isEmpty) return;
-              Navigator.pop(context);
-              try {
-                await _apiService.joinClassroom(
-                  firebaseUid: widget.firebaseUid,
-                  classroomCode: code,
-                );
-                _showMessage(_isTeacher
-                    ? 'Joined classroom as additional teacher.'
-                    : 'Joined classroom successfully.');
-                await _loadClassrooms();
-              } catch (e) {
-                _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
-              }
-            },
-            style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            child: const Text('Join'),
-          ),
-        ],
+      builder: (context) => const TextPromptDialog(
+        title: 'Join Classroom',
+        label: 'Classroom code',
+        confirmLabel: 'Join',
+        textCapitalization: TextCapitalization.characters,
       ),
     );
-    controller.dispose();
+
+    if (!mounted || code == null || code.isEmpty) return;
+
+    try {
+      await _apiService.joinClassroom(
+        firebaseUid: widget.firebaseUid,
+        classroomCode: code.toUpperCase(),
+      );
+      if (!mounted) return;
+      _showMessage('Joined classroom as co-teacher.');
+      await _loadClassrooms();
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(ApiErrorHandler.userMessage(e), isError: true);
+    }
+  }
+
+  int _studentCount(Map<String, dynamic> classroom) {
+    final count = classroom['student_count'];
+    if (count is int) return count;
+    if (count is num) return count.toInt();
+    return (classroom['students_details'] as List?)?.length ?? 0;
   }
 
   Widget _buildHeader() {
-    final name = _currentUser?['name'] as String? ?? 'User';
-    final role = (_currentUser?['role'] as String? ?? widget.role);
-    final imagePath = _currentUser?['profile_image'] as String?;
+    final name = _currentTeacher?['name'] as String? ?? 'Teacher';
+    final imagePath = _currentTeacher?['profile_image'] as String?;
     ImageProvider? profileProvider;
     if (imagePath != null && imagePath.isNotEmpty) {
       profileProvider = imagePath.startsWith('http')
@@ -206,11 +171,8 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
             backgroundImage: profileProvider,
             child: profileProvider == null
                 ? Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                    name.isNotEmpty ? name[0].toUpperCase() : 'T',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: colorScheme.onPrimaryContainer),
                   )
                 : null,
           ),
@@ -221,7 +183,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
               children: [
                 Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 Text(
-                  '${role[0].toUpperCase()}${role.substring(1)}',
+                  'Teacher / Invigilator',
                   style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.5)),
                 ),
               ],
@@ -247,17 +209,8 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withOpacity(0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -290,12 +243,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
     final colorScheme = Theme.of(context).colorScheme;
     final classroomId = classroom['classroom_id'] as String?;
     final activeSession = classroomId == null ? null : _activeSessions[classroomId];
-    final students = classroom['students_details'] as List<dynamic>? ?? [];
-    final teachers = classroom['teachers_details'] as List<dynamic>? ?? [];
-    final teacherNames = teachers
-        .whereType<Map<String, dynamic>>()
-        .map((t) => (t['name'] as String?) ?? 'Teacher')
-        .join(', ');
+    final studentCount = _studentCount(classroom);
     final isActive = activeSession != null;
 
     return Container(
@@ -304,18 +252,8 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive
-              ? colorScheme.primary.withOpacity(0.4)
-              : colorScheme.outline.withOpacity(0.15),
-          width: isActive ? 1.5 : 1,
+          color: isActive ? colorScheme.primary.withOpacity(0.4) : colorScheme.outline.withOpacity(0.15),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -329,7 +267,6 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
                 builder: (_) => ClassroomManagementScreen(
                   classroom: classroom,
                   activeSession: activeSession,
-                  role: widget.role,
                   teacherUid: widget.firebaseUid,
                 ),
               ),
@@ -355,73 +292,29 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
                         decoration: BoxDecoration(
                           color: Colors.green.shade50,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.green.shade200),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Live',
-                              style: TextStyle(
-                                color: Colors.green.shade700,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'Live',
+                          style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                       ),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
                 Row(
                   children: [
-                    _infoChip(
-                      Icons.key_rounded,
-                      classroom['classroom_code'] ?? '-',
-                      colorScheme,
-                    ),
+                    _infoChip(Icons.key_rounded, classroom['classroom_code'] ?? '-', colorScheme),
                     const SizedBox(width: 8),
-                    if (_isTeacher)
-                      _infoChip(
-                        Icons.people_outline_rounded,
-                        '${students.length} students',
-                        colorScheme,
-                      )
-                    else
-                      Flexible(
-                        child: _infoChip(
-                          Icons.person_outline_rounded,
-                          teacherNames.isEmpty ? 'No teacher' : teacherNames,
-                          colorScheme,
-                        ),
-                      ),
+                    _infoChip(Icons.people_outline_rounded, '$studentCount students', colorScheme),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      _isTeacher ? 'Manage Classroom' : 'Open Classroom',
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                      'Open Classroom',
+                      style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward_ios_rounded, size: 13, color: colorScheme.primary),
@@ -447,10 +340,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
         children: [
           Icon(icon, size: 13, color: colorScheme.onSurface.withOpacity(0.5)),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.65)),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.65))),
         ],
       ),
     );
@@ -465,11 +355,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         elevation: 0,
-        scrolledUnderElevation: 1,
-        title: const Text(
-          'My Classrooms',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-        ),
+        title: const Text('My Classrooms', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
           PopupMenuButton<String>(
             icon: Container(
@@ -480,39 +366,32 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
               ),
               child: Icon(Icons.add_rounded, color: colorScheme.onPrimaryContainer, size: 20),
             ),
-            color: colorScheme.surface,
-            surfaceTintColor: colorScheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             onSelected: (value) {
               if (value == 'create') _createClassroomDialog();
               else if (value == 'join') _joinClassroomDialog();
             },
-            itemBuilder: (context) {
-              final items = <PopupMenuEntry<String>>[];
-              if (_isTeacher) {
-                items.add(PopupMenuItem(
-                  value: 'create',
-                  child: Row(
-                    children: [
-                      Icon(Icons.add_box_outlined, size: 18, color: colorScheme.primary),
-                      const SizedBox(width: 10),
-                      const Text('Create Classroom', style: TextStyle(fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ));
-              }
-              items.add(PopupMenuItem(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'create',
+                child: Row(
+                  children: [
+                    Icon(Icons.add_box_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('Create Classroom'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'join',
                 child: Row(
                   children: [
-                    Icon(Icons.login_rounded, size: 18, color: colorScheme.primary),
-                    const SizedBox(width: 10),
-                    const Text('Join Classroom', style: TextStyle(fontWeight: FontWeight.w500)),
+                    Icon(Icons.login_rounded, size: 18),
+                    SizedBox(width: 10),
+                    Text('Join Classroom'),
                   ],
                 ),
-              ));
-              return items;
-            },
+              ),
+            ],
           ),
           const SizedBox(width: 8),
         ],
@@ -536,29 +415,13 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          Icons.class_outlined,
-                                          size: 64,
-                                          color: colorScheme.onSurface.withOpacity(0.2),
-                                        ),
+                                        Icon(Icons.class_outlined, size: 64, color: colorScheme.onSurface.withOpacity(0.2)),
                                         const SizedBox(height: 16),
-                                        Text(
-                                          'No classrooms yet',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.onSurface.withOpacity(0.4),
-                                            fontSize: 16,
-                                          ),
-                                        ),
+                                        const Text('No classrooms yet', style: TextStyle(fontWeight: FontWeight.w600)),
                                         const SizedBox(height: 6),
                                         Text(
-                                          _isTeacher
-                                              ? 'Create your first classroom'
-                                              : 'Join a classroom using a code',
-                                          style: TextStyle(
-                                            color: colorScheme.onSurface.withOpacity(0.3),
-                                            fontSize: 13,
-                                          ),
+                                          'Create your first classroom to get started',
+                                          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.4)),
                                         ),
                                       ],
                                     ),

@@ -4,8 +4,9 @@ from pymongo.database import Database
 
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "examguard_db"
-USERS_COLLECTION = "users"
+TEACHERS_COLLECTION = "teachers"
 CLASSROOMS_COLLECTION = "classrooms"
+STUDENTS_COLLECTION = "students"
 EXAM_SESSIONS_COLLECTION = "exam_sessions"
 NOTIFICATIONS_COLLECTION = "notifications"
 
@@ -15,8 +16,9 @@ try:
     print("MongoDB connected successfully")
 
     database: Database = client[DB_NAME]
-    users_collection: Collection = database[USERS_COLLECTION]
+    teachers_collection: Collection = database[TEACHERS_COLLECTION]
     classrooms_collection: Collection = database[CLASSROOMS_COLLECTION]
+    students_collection: Collection = database[STUDENTS_COLLECTION]
     exam_sessions_collection: Collection = database[EXAM_SESSIONS_COLLECTION]
     notifications_collection: Collection = database[NOTIFICATIONS_COLLECTION]
 
@@ -24,6 +26,9 @@ try:
     if NOTIFICATIONS_COLLECTION not in existing_collections:
         database.create_collection(NOTIFICATIONS_COLLECTION)
         print("MongoDB notifications collection created")
+    if STUDENTS_COLLECTION not in existing_collections:
+        database.create_collection(STUDENTS_COLLECTION)
+        print("MongoDB students collection created")
 
 except Exception as e:
     print("MongoDB connection error:", e)

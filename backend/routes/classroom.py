@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from models.classroom import ClassroomCreateRequest, ClassroomJoinRequest
 from services.classroom_service import (
     create_classroom,
-    get_student_classrooms,
+    get_classroom_by_id,
     get_teacher_classrooms,
     join_classroom,
 )
@@ -31,7 +31,7 @@ def join_classroom_route(payload: ClassroomJoinRequest):
 
     try:
         classroom = join_classroom(payload.firebase_uid.strip(), payload.classroom_code.strip())
-        return {"message": "Classroom joined successfully", "classroom": classroom}
+        return {"message": "Joined classroom as teacher", "classroom": classroom}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -42,7 +42,9 @@ def get_teacher_classrooms_route(firebase_uid: str):
     return {"classrooms": classrooms}
 
 
-@router.get("/student/{firebase_uid}")
-def get_student_classrooms_route(firebase_uid: str):
-    classrooms = get_student_classrooms(firebase_uid)
-    return {"classrooms": classrooms}
+@router.get("/{classroom_id}")
+def get_classroom_route(classroom_id: str):
+    classroom = get_classroom_by_id(classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Classroom not found")
+    return {"classroom": classroom}

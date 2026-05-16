@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from models.exam_session import EndExamRequest, StartExamRequest
 from services.exam_session_service import (
@@ -23,6 +24,15 @@ def start_exam(payload: StartExamRequest):
         )
         return {"message": "Monitoring session started", "session": session}
     except ValueError as exc:
+        if str(exc) == "ACTIVE_SESSION_EXISTS":
+            active = get_active_session(payload.classroom_id.strip())
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "message": "An active exam session already exists.",
+                    "session": active,
+                },
+            )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 
+import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
 import 'monitoring_camera_screen.dart';
 
@@ -75,17 +76,17 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
 
     setState(() => _isEnding = true);
     try {
-      final response = await _apiService.endExamSession(
+      final updated = await _apiService.endExamSession(
         sessionId: _session['session_id'] as String,
         endedBy: widget.teacherUid,
       );
       if (!mounted) return;
-      setState(() => _session = response['session'] as Map<String, dynamic>);
+      setState(() => _session = updated);
       _showMessage('Monitoring ended successfully.');
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+      _showMessage(ApiErrorHandler.userMessage(e));
     } finally {
       if (mounted) setState(() => _isEnding = false);
     }
@@ -109,7 +110,8 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
     }
     if (student is String) {
       for (final item in widget.students) {
-        if (item is Map<String, dynamic> && item['firebase_uid'] == student) {
+        if (item is Map<String, dynamic> &&
+            (item['student_id'] == student || item['firebase_uid'] == student)) {
           return item['name'] as String? ?? 'Student';
         }
       }
@@ -118,11 +120,14 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
   }
 
   String _studentRoll(dynamic student) {
-    if (student is Map<String, dynamic>) return student['roll_no'] as String? ?? '-';
+    if (student is Map<String, dynamic>) {
+      return (student['roll_number'] ?? student['roll_no']) as String? ?? '-';
+    }
     if (student is String) {
       for (final item in widget.students) {
-        if (item is Map<String, dynamic> && item['firebase_uid'] == student) {
-          return item['roll_no'] as String? ?? '-';
+        if (item is Map<String, dynamic> &&
+            (item['student_id'] == student || item['firebase_uid'] == student)) {
+          return (item['roll_number'] ?? item['roll_no']) as String? ?? '-';
         }
       }
     }
@@ -135,15 +140,17 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
       imagePath = student['profile_image'] as String?;
     } else if (student is String) {
       for (final item in widget.students) {
-        if (item is Map<String, dynamic> && item['firebase_uid'] == student) {
+        if (item is Map<String, dynamic> &&
+            (item['student_id'] == student || item['firebase_uid'] == student)) {
           imagePath = item['profile_image'] as String?;
           break;
         }
       }
     }
     if (imagePath == null || imagePath.isEmpty) return null;
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return NetworkImage(imagePath);
+    if (imagePath.startsWith('/') || imagePath.startsWith('http')) {
+      final url = _apiService.buildAbsoluteUrl(imagePath);
+      return NetworkImage(url);
     }
     return FileImage(File(imagePath));
   }

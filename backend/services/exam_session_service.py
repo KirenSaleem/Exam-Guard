@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from db.database import classrooms_collection, exam_sessions_collection, notifications_collection
 from models.exam_session import ExamSession
+from services.student_service import get_student_ids_for_classroom
 
 
 def _serialize_exam_session(session_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -27,7 +28,7 @@ def get_active_session(classroom_id: str) -> Optional[Dict[str, Any]]:
 def start_exam_session(classroom_id: str, exam_name: str, started_by: str) -> Dict[str, Any]:
     active_session = get_active_session(classroom_id)
     if active_session:
-        raise ValueError("An active exam session already exists for this classroom.")
+        raise ValueError("ACTIVE_SESSION_EXISTS")
 
     classroom = classrooms_collection.find_one({"classroom_id": classroom_id})
     if not classroom:
@@ -36,13 +37,15 @@ def start_exam_session(classroom_id: str, exam_name: str, started_by: str) -> Di
     if started_by not in classroom.get("teachers", []):
         raise ValueError("Only classroom teacher can start monitoring.")
 
+    monitored_students = get_student_ids_for_classroom(classroom_id)
+
     session = ExamSession(
         session_id=str(uuid4()),
         classroom_id=classroom_id,
         exam_name=exam_name,
         started_by=started_by,
         start_time=datetime.utcnow(),
-        monitored_students=classroom.get("students", []),
+        monitored_students=monitored_students,
     )
     session_dict = session.model_dump()
     exam_sessions_collection.insert_one(session_dict)
@@ -54,12 +57,16 @@ def end_exam_session(session_id: str, ended_by: str) -> Dict[str, Any]:
     if not session_doc:
         raise ValueError("Session not found.")
 
-    if session_doc.get("started_by") != ended_by:
-        raise ValueError("Only the teacher who started the session can end it.")
+    classroom = classrooms_collection.find_one({"classroom_id": session_doc.get("classroom_id")})
+    if not classroom or ended_by not in classroom.get("teachers", []):
+        raise ValueError("Only a classroom teacher can end this session.")
+
+    if session_doc.get("status") != "active":
+        raise ValueError("This session is not active.")
 
     exam_sessions_collection.update_one(
         {"session_id": session_id},
-        {"$set": {"status": "ended", "end_time": datetime.utcnow()}},
+        {"$set": {"status": "completed", "end_time": datetime.utcnow()}},
     )
     updated_doc = exam_sessions_collection.find_one({"session_id": session_id})
     if not updated_doc:

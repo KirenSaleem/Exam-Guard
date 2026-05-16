@@ -126,7 +126,7 @@ class ClassroomParticipantsScreen extends StatelessWidget {
   Widget _memberCard(BuildContext context, Map<String, dynamic> member, {required bool isTeacher}) {
     final colorScheme = Theme.of(context).colorScheme;
     final name = member['name'] as String? ?? (isTeacher ? 'Teacher' : 'Student');
-    final rollNo = member['roll_no'] as String?;
+    final rollNo = (member['roll_number'] ?? member['roll_no']) as String?;
     final image = _imageProvider(member['profile_image'] as String?);
 
     return Container(
