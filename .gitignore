@@ -48,6 +48,26 @@ htmlcov/
 venv/
 .venv/
 env/
+ENV/
+backend/venv/
+backend/.venv/
+
+# YOLO / model weights (download on server — do not commit)
+*.pt
+backend/*.pt
+backend/yolov8*.pt
+
+# Backend runtime storage (uploaded at runtime)
+backend/storage/alerts/*
+backend/storage/students/*
+!backend/storage/alerts/.gitkeep
+!backend/storage/students/.gitkeep
+
+# Python build artifacts
+*.egg-info/
+dist/
+build/
+*.spec
 
 # ------------------------------
 # MongoDB / local data dumps
