@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/api_config.dart';
+import '../widgets/app_ui.dart';
 
 /// Teacher-only screen: share browser registration link and QR code.
 /// Students open the link on any phone — they do not use the mobile app.
@@ -38,46 +39,22 @@ class GenerateRegistrationFormScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    classroomName,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Class code: $classroomCode',
-                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6)),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Students scan the QR or open the link in Chrome/Safari. '
-                    'They submit name, roll number, and photo — no login.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurface.withOpacity(0.65),
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+            AppGradientHeader(
+              title: classroomName,
+              subtitle: 'Class code: $classroomCode',
+              chips: const [AppBadge.ai(label: 'STUDENT REGISTRATION')],
+            ),
+            const SizedBox(height: 12),
+            AppCard(
+              child: Text(
+                'Students scan the QR or open the link in Chrome/Safari. '
+                'They submit name, roll number, and photo — no login.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4),
               ),
             ),
             const SizedBox(height: 28),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
-                ),
+            AppCard(
+              child: Center(
                 child: QrImageView(
                   data: _registrationUrl,
                   version: QrVersions.auto,

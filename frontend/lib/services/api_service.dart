@@ -9,6 +9,8 @@ import 'api_config.dart';
 import 'api_error_handler.dart';
 import 'api_exception.dart';
 
+/// HTTP client for ExamGuard backend (classrooms, exams, monitoring, students).
+/// All routes use [ApiConfig.baseUrl]; errors are mapped via [ApiErrorHandler].
 class ApiService {
   String get baseUrl => ApiConfig.baseUrl;
 

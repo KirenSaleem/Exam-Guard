@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 /// Simple dialog with one text field. Disposes its controller safely.
 class TextPromptDialog extends StatefulWidget {
   final String title;
@@ -37,25 +39,23 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w800)),
       content: TextField(
         controller: _controller,
         textCapitalization: widget.textCapitalization,
         autofocus: true,
         decoration: InputDecoration(
           labelText: widget.label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: _submit,
+          style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
           child: Text(widget.confirmLabel),
         ),
       ],

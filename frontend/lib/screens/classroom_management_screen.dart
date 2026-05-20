@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_ui.dart';
 import 'exam_history_screen.dart';
 import 'monitoring_dashboard.dart';
 import 'registered_students_screen.dart';
 import 'start_exam_screen.dart';
 import 'student_registration_form.dart';
 
+/// Classroom hub: monitoring, registration link, students, exam history.
 class ClassroomManagementScreen extends StatefulWidget {
   final Map<String, dynamic> classroom;
   final Map<String, dynamic>? activeSession;
@@ -60,12 +63,7 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
   }
 
   void _showSnack(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : null,
-      ),
-    );
+    AppUi.snack(context, message, isError: isError);
   }
 
   int get _studentCount {
@@ -178,53 +176,24 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.82)],
+            AppGradientHeader(
+              title: classroomName,
+              subtitle: 'Class code: $classroomCode',
+              chips: [
+                AppBadge(
+                  label: isActive ? 'MONITORING LIVE' : 'INACTIVE',
+                  background: isActive ? AppColors.success : Colors.grey.shade600,
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: _classInfoTile(Icons.key_rounded, 'Code', classroomCode)),
-                      Container(width: 1, height: 40, color: Colors.white24),
-                      Expanded(child: _classInfoTile(Icons.people_rounded, 'Students', '$_studentCount')),
-                      Container(width: 1, height: 40, color: Colors.white24),
-                      Expanded(child: _classInfoTile(Icons.school_rounded, 'Teachers', '${teachers.length}')),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isActive ? Colors.greenAccent : Colors.white54,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isActive ? 'Monitoring Active' : 'Monitoring Inactive',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                AppBadge.ai(label: 'AI READY'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _miniStat('Students', '$_studentCount', Icons.people_rounded)),
+                const SizedBox(width: 8),
+                Expanded(child: _miniStat('Teachers', '${teachers.length}', Icons.school_rounded)),
+              ],
             ),
             const SizedBox(height: 24),
             const Padding(
@@ -234,19 +203,17 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.8),
               ),
             ),
-            _actionCard(
-              context: context,
+            AppActionTile(
               icon: isActive ? Icons.monitor_rounded : Icons.play_circle_rounded,
-              iconBgColor: isActive ? Colors.green.shade600 : colorScheme.primary,
+              iconColor: isActive ? AppColors.success : AppColors.primary,
               title: isActive ? 'Open Monitoring' : 'Start Monitoring',
               subtitle: isActive ? 'Return to the running exam session' : 'Begin AI exam monitoring',
               onTap: _openMonitoring,
             ),
             const SizedBox(height: 10),
-            _actionCard(
-              context: context,
+            AppActionTile(
               icon: Icons.qr_code_2_rounded,
-              iconBgColor: Colors.teal.shade600,
+              iconColor: AppColors.secondary,
               title: 'Generate Registration Form',
               subtitle: 'Share link or QR for student browser registration',
               onTap: () async {
@@ -263,10 +230,9 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
               },
             ),
             const SizedBox(height: 10),
-            _actionCard(
-              context: context,
+            AppActionTile(
               icon: Icons.people_alt_rounded,
-              iconBgColor: Colors.indigo.shade500,
+              iconColor: AppColors.primary,
               title: 'View Registered Students',
               subtitle: '$_studentCount students registered',
               onTap: () async {
@@ -284,10 +250,9 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
               },
             ),
             const SizedBox(height: 10),
-            _actionCard(
-              context: context,
+            AppActionTile(
               icon: Icons.history_rounded,
-              iconBgColor: Colors.orange.shade600,
+              iconColor: AppColors.warning,
               title: 'Exam History',
               subtitle: 'Sessions, alerts, suspicious activity & PDF reports',
               onTap: () async {
@@ -310,64 +275,20 @@ class _ClassroomManagementScreenState extends State<ClassroomManagementScreen> {
     );
   }
 
-  Widget _classInfoTile(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white70, size: 20),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-      ],
-    );
-  }
-
-  Widget _actionCard({
-    required BuildContext context,
-    required IconData icon,
-    required Color iconBgColor,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outline.withOpacity(0.12)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      const SizedBox(height: 2),
-                      Text(subtitle, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.5))),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: colorScheme.onSurface.withOpacity(0.3)),
-              ],
-            ),
+  Widget _miniStat(String label, String value, IconData icon) {
+    return AppCard(
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary, size: 20),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            ],
           ),
-        ),
+        ],
       ),
     );
   }

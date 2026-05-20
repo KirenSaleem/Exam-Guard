@@ -8,6 +8,8 @@ import 'screens/login_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'services/api_error_handler.dart';
 import 'services/api_service.dart';
+import 'theme/app_theme.dart';
+import 'widgets/app_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,15 +25,13 @@ class ExamGuardApp extends StatelessWidget {
     return MaterialApp(
       title: 'ExamGuard',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light(),
       home: const SessionGate(),
     );
   }
 }
 
+/// Decides where to send the user after app launch: login, profile setup, or dashboard.
 class SessionGate extends StatefulWidget {
   const SessionGate({super.key});
 
@@ -55,6 +55,7 @@ class _SessionGateState extends State<SessionGate> {
     });
   }
 
+  /// Navigation flow: Firebase user → teacher profile in MongoDB → dashboard or setup.
   Future<_SessionResult> _resolveSession() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -90,9 +91,7 @@ class _SessionGateState extends State<SessionGate> {
       future: _sessionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: AppLoadingView(message: 'Loading ExamGuard...'));
         }
 
         if (snapshot.hasError) {

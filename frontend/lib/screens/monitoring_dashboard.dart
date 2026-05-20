@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/session_timer_utils.dart';
+import '../widgets/app_ui.dart';
 import 'monitoring_camera_screen.dart';
 
+/// AI monitoring dashboard: session status, live camera, alerts list.
 class MonitoringDashboard extends StatefulWidget {
   final Map<String, dynamic> session;
   final String classroomId;
@@ -115,21 +118,14 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showMessage(ApiErrorHandler.userMessage(e));
+      _showMessage(ApiErrorHandler.userMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isEnding = false);
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+  void _showMessage(String message, {bool isError = false}) {
+    AppUi.snack(context, message, isError: isError);
   }
 
   String _studentName(dynamic student) {
@@ -207,197 +203,57 @@ class _MonitoringDashboardState extends State<MonitoringDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Session status card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isActive
-                      ? [Colors.green.shade600, Colors.green.shade500]
-                      : [Colors.grey.shade600, Colors.grey.shade500],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            AppGradientHeader(
+              title: _session['exam_name'] as String? ?? 'Exam Session',
+              subtitle: widget.classroomName,
+              chips: [
+                if (isActive) const AppBadge.live(label: 'LIVE'),
+                AppBadge.ai(label: 'YOLO DETECTION'),
+                AppBadge(
+                  label: '${status[0].toUpperCase()}${status.substring(1)}',
+                  background: isActive ? AppColors.success : Colors.grey.shade600,
                 ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isActive ? Colors.green : Colors.grey).withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isActive ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _session['exam_name'] ?? '-',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: const BoxDecoration(
-                                color: Colors.white70,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              '${status[0].toUpperCase()}${status.substring(1)}  ·  ${widget.classroomName}',
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-
             const SizedBox(height: 12),
-
             if (isActive)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.timer_outlined, color: colorScheme.primary, size: 22),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Running Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                        Text(
-                          SessionTimer.formatHms(_sessionElapsed()),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Total Alerts',
-                          style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                        ),
-                        Text(
-                          '${_alerts.length}',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  AppStatTile(
+                    icon: Icons.timer_outlined,
+                    value: SessionTimer.formatHms(_sessionElapsed()),
+                    label: 'Running Timer',
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  AppStatTile(
+                    icon: Icons.warning_amber_rounded,
+                    value: '${_alerts.length}',
+                    label: 'Total Alerts',
+                    color: AppColors.warning,
+                  ),
+                ],
               ),
-
-            const SizedBox(height: 16),
-
-            // Camera button
+            const SizedBox(height: 14),
             if (isActive)
-              Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MonitoringCameraScreen(
-                          classroomId: widget.classroomId,
-                          sessionId: _session['session_id'] as String,
-                          sessionStartTime: _session['start_time'] as String?,
-                          sessionEndTime: _session['end_time'] as String?,
-                          sessionStatus: status,
-                          initialAlertCount: _alerts.length,
-                        ),
-                      ),
-                    ).then((_) => _loadAlerts()),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary,
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            child: const Icon(Icons.videocam_rounded, color: Colors.white, size: 22),
-                          ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Open Live Camera',
-                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                SizedBox(height: 1),
-                                Text('Live preview · phone & book detection ~1/sec',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.chevron_right_rounded,
-                              color: colorScheme.onSurface.withOpacity(0.3)),
-                        ],
-                      ),
+              AppActionTile(
+                icon: Icons.videocam_rounded,
+                iconColor: AppColors.danger,
+                title: 'Open Live Camera',
+                subtitle: 'AI scans ~1/sec · pinch zoom · phone & book detection',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MonitoringCameraScreen(
+                      classroomId: widget.classroomId,
+                      sessionId: _session['session_id'] as String,
+                      sessionStartTime: _session['start_time'] as String?,
+                      sessionEndTime: _session['end_time'] as String?,
+                      sessionStatus: status,
+                      initialAlertCount: _alerts.length,
                     ),
                   ),
-                ),
+                ).then((_) => _loadAlerts()),
               ),
 
             const SizedBox(height: 20),

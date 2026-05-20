@@ -5,11 +5,13 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/monitoring_frame_utils.dart';
 import '../utils/session_timer_utils.dart';
+import '../widgets/app_ui.dart';
 import '../widgets/camera_zoom_controls.dart';
 
-/// Continuous live preview + ~1 AI scan/sec on downscaled frames (phone & book only).
+/// Live camera + periodic AI frame upload (~1/sec) for phone/book detection.
 class MonitoringCameraScreen extends StatefulWidget {
   final String classroomId;
   final String sessionId;
@@ -167,24 +169,7 @@ class _MonitoringCameraScreenState extends State<MonitoringCameraScreen> {
           _lastAlertText = message;
           _alertCount++;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_rounded, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        AppUi.snack(context, message, isError: true);
       }
     } catch (e) {
       debugPrint('[ExamGuard] Detection frame: $e');
@@ -270,12 +255,12 @@ class _MonitoringCameraScreenState extends State<MonitoringCameraScreen> {
                 Positioned(
                   top: 12,
                   left: 12,
-                  child: _liveBadge(),
+                  child: const AppBadge.live(label: 'LIVE MONITORING'),
                 ),
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: _chip(Icons.sensors_rounded, '~1 AI scan/s'),
+                  child: const AppBadge.ai(label: '~1 AI scan/s'),
                 ),
                 if (_isReady)
                   Positioned(
@@ -324,37 +309,50 @@ class _MonitoringCameraScreenState extends State<MonitoringCameraScreen> {
             ),
           ),
           Container(
-            color: const Color(0xFF111111),
+            decoration: const BoxDecoration(
+              gradient: AppColors.monitoringGradient,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
             child: Column(
               children: [
                 Row(
                   children: [
-                    _statTile(
-                      Icons.timer_outlined,
-                      SessionTimer.formatHms(_elapsed()),
-                      'Running Timer',
-                      Colors.blue.shade300,
+                    AppStatTile(
+                      icon: Icons.timer_outlined,
+                      value: SessionTimer.formatHms(_elapsed()),
+                      label: 'Timer',
+                      color: AppColors.secondary,
                     ),
-                    const SizedBox(width: 10),
-                    _statTile(
-                      Icons.warning_amber_rounded,
-                      '$_alertCount',
-                      'Alert Count',
-                      Colors.orange.shade400,
+                    const SizedBox(width: 8),
+                    AppStatTile(
+                      icon: Icons.warning_amber_rounded,
+                      value: '$_alertCount',
+                      label: 'Alerts',
+                      color: AppColors.warning,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _statTile(Icons.analytics_outlined, '$_framesAnalyzed', 'AI Scans', Colors.green.shade400),
-                    const SizedBox(width: 10),
-                    _statTile(Icons.verified_user_outlined, statusLabel, 'Session Status', Colors.teal.shade300),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(_statusText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Row(
+                  children: [
+                    AppStatTile(
+                      icon: Icons.analytics_outlined,
+                      value: '$_framesAnalyzed',
+                      label: 'AI Scans',
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 8),
+                    AppStatTile(
+                      icon: Icons.verified_user_outlined,
+                      value: statusLabel,
+                      label: 'Status',
+                      color: AppColors.accent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(_statusText, style: const TextStyle(color: Colors.white60, fontSize: 12)),
               ],
             ),
           ),
@@ -363,121 +361,4 @@ class _MonitoringCameraScreenState extends State<MonitoringCameraScreen> {
     );
   }
 
-  Widget _liveBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.red.shade600,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PulsingDot(),
-          SizedBox(width: 6),
-          Text(
-            'LIVE MONITORING ACTIVE',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white70, size: 13),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statTile(IconData icon, String value, String label, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15),
-                  ),
-                  Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween(begin: 0.45, end: 1.0).animate(_controller),
-      child: const SizedBox(
-        width: 8,
-        height: 8,
-        child: DecoratedBox(
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-        ),
-      ),
-    );
-  }
 }

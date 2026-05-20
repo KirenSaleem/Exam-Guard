@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'classroom_dashboard.dart';
 import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_ui.dart';
 
+/// First-time teacher profile in MongoDB after Firebase sign-up.
 class ProfileSetupScreen extends StatefulWidget {
   final String firebaseUid;
   final String email;
@@ -48,7 +51,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   Future<void> _saveProfile() async {
     final String name = _nameController.text.trim();
     if (name.isEmpty) {
-      _showMessage('Please enter your full name');
+      AppUi.snack(context, 'Please enter your full name', isError: true);
       return;
     }
 
@@ -72,21 +75,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      _showMessage(ApiErrorHandler.userMessage(e));
+      AppUi.snack(context, ApiErrorHandler.userMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
   }
 
   @override
@@ -114,14 +106,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
+                      gradient: AppColors.heroGradient,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(
-                      Icons.cast_for_education_rounded,
-                      size: 36,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                    child: const Icon(Icons.cast_for_education_rounded, size: 36, color: Colors.white),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -142,13 +130,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                 ],
               ),
               const SizedBox(height: 32),
-              Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.outline.withOpacity(0.15)),
-                ),
-                padding: const EdgeInsets.all(20),
+              AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -173,7 +155,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isLoading ? null : _saveProfile,
                 style: FilledButton.styleFrom(

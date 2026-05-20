@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../services/api_error_handler.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/app_ui.dart';
 import '../widgets/text_prompt_dialog.dart';
 import 'classroom_management_screen.dart';
 import 'login_screen.dart';
 
+/// Main teacher home: list classrooms, active sessions, create/join.
 class ClassroomDashboard extends StatefulWidget {
   final String firebaseUid;
 
@@ -74,15 +76,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
   }
 
   void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade600,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    AppUi.snack(context, message, isError: isError);
   }
 
   Future<void> _createClassroomDialog() async {
@@ -401,7 +395,7 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
           _buildHeader(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const AppLoadingView(message: 'Loading classrooms...')
                 : RefreshIndicator(
                     onRefresh: _loadClassrooms,
                     child: CustomScrollView(
@@ -410,21 +404,11 @@ class _ClassroomDashboardState extends State<ClassroomDashboard> {
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                           sliver: _classrooms.isEmpty
-                              ? SliverFillRemaining(
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.class_outlined, size: 64, color: colorScheme.onSurface.withOpacity(0.2)),
-                                        const SizedBox(height: 16),
-                                        const Text('No classrooms yet', style: TextStyle(fontWeight: FontWeight.w600)),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Create your first classroom to get started',
-                                          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.4)),
-                                        ),
-                                      ],
-                                    ),
+                              ? const SliverFillRemaining(
+                                  child: AppEmptyState(
+                                    icon: Icons.class_outlined,
+                                    title: 'No classrooms yet',
+                                    subtitle: 'Create your first classroom to get started',
                                   ),
                                 )
                               : SliverList(
